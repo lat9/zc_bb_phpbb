@@ -1,0 +1,143 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+<title>Zen Cart&reg;/phpBB&reg; Integration via Notifier Hooks</title>
+
+<style type="text/css">
+<!--
+a, a:active, a:visited { color: #006666; text-decoration: none; }
+a:hover { color:#00CC99; text-decoration: underline; }
+BODY, P, H1, H2, H3, H4, H5, H6, LI, TD, DD, DT, ul, ol { 
+  font-family: Verdana, AvantGarde, Tahoma, Arial, sans-serif;
+  font-size: 10pt;
+  color: black;
+  padding: 0px;
+  margin: 20px;
+}
+H1, H2, H3, H4 { font-weight: bold; padding: 7px; }
+h1 { font-size: 20px; }
+h2 { font-size: 16px; background-color: #ababab; border: 1px solid #505050; }
+h3 { background-color: #d2d2d2; border: 1px solid #ababab; }
+h4 { background-color: #ebebeb; border: 1px solid #7b7b7b;}
+pre { padding-left: 25px; }
+ol li { margin-left: 0; }
+.corefile { color: red; }
+.removed { text-decoration: line-through; }
+.minspacing li { margin: 0; }
+ol li, ul li, ol li ul, ul li ul, ul li ol, ol li ol, ol li ul li, ol li ol li, ul li ul li, ul li ol li { margin-top: 5px; margin-bottom: 5px; }
+ul li ul { padding-left: 0; }
+.level1 { padding-left: 20px; }
+.table { display: table; font-size: 8pt; padding-left: 20px;}
+.head_outer, .item_outer { display: table-row; }
+.thead, .item { display: table-cell; padding: 5px 10px;}
+.head_outer { font-weight: bold; }
+.table ul { list-style-type: none; padding-left: 0; margin: 0; }
+.table ul li { margin: 0; }
+.c1 {}
+.c2 {}
+.c3 {}
+.c3a, .c4, .c5 { text-align: center;}
+.c5 {}
+.odd, .head_outer { background-color: #d2d2d2; }
+.desc { margin: 0 10px 0 40px; border: 1px solid #d2d2d2; border-top-style: none; }
+.desc p { margin: 10px; }
+.elmt { padding: 10px; background-color: #ebebeb; margin: 10px;}
+.title { font-weight: bold; }
+.desc pre { background-color: white; border: 1px solid black; padding: 5px; }
+-->
+</style>
+</head>
+
+<body>
+<a name="top" id="top"></a>
+<h1>Zen Cart&reg;/phpBB&reg; Integration via Notifier Hooks</h1>
+<h3>Version 1.2.1 by lat9</h3>
+<p>Current Support Thread at Zen Cart Forums: <a href="http://www.zen-cart.com/showthread.php?204807-Zen-Cart-Bulletin-Board-Integration-Support-Thread" target="_blank">http://www.zen-cart.com/showthread.php?204807-Zen-Cart-Bulletin-Board-Integration-Support-Thread</a></p>
+
+<h2>Version History</h2>
+<p>The idea for this plugin came from <a href="http://www.zen-cart.com/showthread.php?204139-account_edit-Duplicate-phpbb-email-addresses-allowed" target="_blank">this</a> thread on the Zen Cart forums.</p>
+<ul>
+  <li>v1.0.0, 2013-01-04, Beta 1 release</li>
+  <li>v1.0.0, 2013-01-14, Initial release<ul>
+    <li>Changed PHPBB_DEBUG values to either 'true' or 'false'.</li>
+    <li>The plugin no longer installs if values in the Zen Cart or phpBB database are not set to the required values; see <a href="#ds">Database Settings</a> for details.</li>
+    <li>Cleaned up some of the debug messages.</li>
+  </ul></li>
+  <li>v1.1.0, 2013-01-19. Modification to the class's instantiation process, dependent on the version of the base Bulletin Board Integration class is currently in use. If installed with v1.1.0 of the base class, the phpbb_observer class will cease its initialization if another bulletin-board observer has been successfully initialized.</li>
+  <li>v1.2.0, 2013-02-22. If running in conjunction with v1.2.0 of the base class, allow installation if the configuration's Minimum Values-&gt;Nick Name is set to 0.</li>
+  <li>v1.2.1, 2013-09-08.  Correct PHP warnings in /includes/classes/observers/class.phpbb_observer.php.</li>
+</ul>
+
+<h3>Prerequisites</h3>
+<p>This plugin requires the following Zen Cart environment to successfully run:
+<ul>
+  <li>Zen Cart (v1.5.1 or later) installed and operable.</li>
+  <li>phpBB (v3.0.11 or later) installed and operable in a subdirectory of the Zen Cart installation.</li>
+  <li>The <a href="http://www.zen-cart.com/downloads.php?do=file&id=1597" target="_blank">Zen Cart&reg;/Bulletin Board Integration via Notifier Hooks</a> plugin installed in the Zen Cart installation.</li>
+</ul>
+
+<hr />
+<h2>What it does</h2>
+<p>This plugin enables account-related changes in a Zen Cart installation to be reflected in a companion phpBB installation using the Bulletin Board Integration via Notifier Hooks plugin. The account-related changes that are reflected in the phpBB installation are:</p>
+<ol class="level1">
+  <li>If a customer creates an Zen-Cart account, a phpBB account is automatically created using the same nickname, email address and password.</li>
+  <li>If a Zen-Cart account-holder changes his/her password, the password is automatically changed in their phpBB account.</li>
+  <li>If a Zen-Cart account-holder changes his/her email address, the email address is automatically changed in their phpBB account.</li>
+  <li>If a Zen-Cart account-holder completes the Zen Cart "Password Forgotten" process, the new password in the email sent by Zen Cart becomes the new password in both the Zen Cart and phpBB accounts.</li>
+</ol>
+<p><strong>Note:</strong> This plugin only goes one way &mdash; once a phpBB account is created, any email or password changes that the customer makes to their phpBB account are made <strong>only</strong> to that account &hellip; the settings in their Zen Cart account are unchanged!</p>
+
+<h3>Configuration Settings</h3>
+<h4 id="ds">Database Settings</h4>
+<p>For proper operation of this plugin, a new account cannot be created with an email address or username (aka nickname) that is currently used in either the Zen Cart or phpBB installation. Since the plugin uses the phpBB <em>username</em> as a 'key' to the phpBB database, the plugin requires that a username (once chosen) cannot be changed. Make sure that the following administrative settings are enabled in your Zen Cart and phpBB installations:</p>
+<ul>
+  <li>In Zen Cart:<ul>
+    <li><em>Configuration-&gt;My Store-&gt;Enable phpBB linkage?</em> must be set to <strong>true</strong>.</li>
+    <li>If installed with a version of the <em>Zen Cart&reg;/Bulletin Board Integration via Notifier Hooks</em> prior to v1.2.0, <em>Configuration-&gt;Minimum Values-&gt;Nick Name</em> must be set to a value larger than 0.</li>
+    <li><em>Configuration-&gt;Minimum Values-&gt;Email Address</em> must be set to a value larger than 0.</li>
+    <li><em>Configuration-&gt;Minimum Values-&gt;Password</em> must be set to a value larger than 0.</li>
+  </ul></li>
+  <li>In phpBB:<ul>
+    <li><em>User Registration Settings-&gt;General Options-&gt;Allow user name changes</em> must be set to <strong>No</strong>.</li>
+    <li><em>User Registration Settings-&gt;General Options-&gt;Allow e-mail address re-use</em> must be set to <strong>No</strong>.</li>
+  </ul></li>
+</ul>
+<p><strong>Note:</strong> This plugin checks for these settings and will not install if the values are not as specified.</p>
+<h4>Settings in /includes/configure.php</h4>
+<p>The plugin uses the <strong>DIR_WS_PHPBB</strong> value defined in Zen Cart's /includes/configure.php to locate the phpBB configuration's files when this plugin is installed &mdash; the directory specification identifies the location <strong>relative</strong> to the Zen Cart installation. In my testing, I've always had the phpBB installation as either a direct subdirectory of the Zen Cart installation:</p>
+<pre>define('DIR_WS_PHPBB', './phpbb/');</pre>
+<p>or as a peer directory to the Zen Cart installation:</p>
+<pre>define('DIR_WS_PHPBB', '../phpbb/');</pre>
+<h4>Settings in /includes/classes/observers/class.phpbb_observer.php</h4>
+<p>There are also a couple of configuration settings currently present in the class file itself:</p>
+<ul>
+  <li><strong>FILENAME_PHPBB_INDEX</strong>. Identifies the index file associated with the phpBB installation &mdash; default: <em>index.php</em>.</li>
+  <li><strong>PHPBB_DEBUG</strong>. Enables ('true') or disables ('false') the debug mode for the plugin &mdash; default: <em>'false'</em>.</li>
+  <li><strong>PHPBB_DEBUG_MODE</strong>. If PHPBB_DEBUG is <em>'true'</em>, identifies the method to use for debug output &mdash; default: <em>screen</em>:<ul>
+    <li><em>screen</em>: Debug messages are written directly to the screen. <strong>Note:</strong> Using this setting will result in a debug*.log file being generated in the /logs folder.</li>
+    <li><em>notify</em>: Debug messages are output using a Zen Cart notifier.</li>
+    <li><em>variable</em>: Debug messages are accumulated in the class variable <em>debug_info</em>.</li>
+  </ul></li>
+  <li><strong>PHPBB_DEBUG_IP</strong>. If PHPBB_DEBUG is <em>'true'</em> and PHPBB_DEBUG_MODE is <em>screen</em>, identifies the IP address for which the screen output is enabled &mdash; default: <em>1</em>:<ol>
+    <li>If the value is set to '', debug messages are written to the screen for <strong>all</strong> IP addresses.</li>
+    <li>If the value is set to a specific IP address, debug messages are written to the screen <strong>only</strong> for the specified IP address.</li>
+    <li>Regardless of the setting, if the current IP address is in the list defined by <em>Configuration-&gt;Website Maintenence-&gt;Down For Maintenance (exclude this IP-Address)</em>, debug messages are written to the screen.</li>
+  </ol></li>
+</ul>
+
+<hr />
+<h2>Installation</h2>
+<p>There are no core-file overwrites in this plugin; you should <strong>always</strong> backup your databases and files prior to making any changes.</p>
+<ol class="level1">
+   <li>Copy these files to your cart:
+  <ol>
+    <li>/includes/auto_loaders/config.bb_phpbb.php</li>
+    <li>/includes/classes/observers/class.phpbb_observer.php</li>
+  </ol></li>
+</ol>
+
+<h2>Un-install</h2>
+<p>Delete the two new files that were previously copied.</p>
+</body>
+</html>
