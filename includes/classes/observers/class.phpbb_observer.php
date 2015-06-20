@@ -5,7 +5,7 @@
  * This class is used to interact with phpBB3 forum
  *
  * @package classes
- * @copyright Copyright 2012-2013, Vinos de Frutas Tropicales (lat9): phpBB Notifier-Hook Integration v1.1.0
+ * @copyright Copyright 2012-2015, Vinos de Frutas Tropicales (lat9): phpBB Notifier-Hook Integration v1.3.0
  * @copyright Copyright 2003-2009 Zen Cart Development Team
  * @license http://www.zen-cart.com/license/2_0.txt GNU Public License V2.0
  * @version $Id: class.phpbb.php 14689 2009-10-26 17:06:43Z drbyte $
@@ -27,7 +27,7 @@ if (!defined('IS_ADMIN_FLAG')) {
 define('FILENAME_PHPBB_INDEX', 'index.php');
 
 if (!defined('PHPBB_DEBUG')) define('PHPBB_DEBUG', 'false');  // Either 'true' or 'false'
-if (!defined('PHPBB_DEBUG_MODE')) define('PHPBB_DEBUG_MODE', 'screen'); // Either 'screen', 'notify' or 'variable'
+if (!defined('PHPBB_DEBUG_MODE')) define('PHPBB_DEBUG_MODE', 'log'); // Either 'screen', 'notify', 'log' or 'variable'
 if (!defined('PHPBB_DEBUG_IP')) define('PHPBB_DEBUG_IP', '1');
 
   class phpbb_observer extends base {
@@ -313,10 +313,10 @@ if (!defined('PHPBB_DEBUG_IP')) define('PHPBB_DEBUG_IP', '1');
     // Check to see if the requested phpBB table exists
       $sql = "SHOW TABLES like '$table_name'";
       $tables = $this->db_phpbb->Execute($sql);
-      $this->debug_output("table_exists($table_name): " . print_r($tables, true));
       if ($tables->RecordCount() > 0) {
         $found_table = true;
       }
+      $this->debug_output("table_exists($table_name), returning ($found_table): " . print_r($tables, true));
       return $found_table;
     }
     
@@ -328,6 +328,7 @@ if (!defined('PHPBB_DEBUG_IP')) define('PHPBB_DEBUG_IP', '1');
     }
 
     function phpbb_create_account($nick, $password, $email_address) {
+      $this->debug_output ("phpbb_create_account ($nick, '', $email_address)");
       if (!zen_not_null($password) || !zen_not_null($email_address) || !zen_not_null($nick)) {
         $status = self::STATUS_MISSING_INPUTS;
       } else {
@@ -335,19 +336,21 @@ if (!defined('PHPBB_DEBUG_IP')) define('PHPBB_DEBUG_IP', '1');
         if ($status == bb::STATUS_OK) {
           $status = $this->phpbb_check_nick_not_used($nick);
           if ($status == bb::STATUS_OK) {
-            $sql = "select max(user_id) as total from " . $this->constants['users_table'];
-            $phpbb_users = $this->db_phpbb->Execute($sql);
-            $user_id = ($phpbb_users->fields['total'] + 1);
-            $sql = "insert into " . $this->constants['users_table'] . "
-                    (user_id, group_id, username, username_clean, user_password, user_email, user_email_hash, user_regdate, user_permissions, user_sig, user_occ, user_interests)
+            $user_dateformat = $this->get_phpbb_config_value ('default_dateformat');
+            $user_lang = $this->get_phpbb_config_value ('default_lang');
+            $user_timezone = $this->get_phpbb_config_value ('board_timezone');
+            $sql = "INSERT INTO " . $this->constants['users_table'] . "
+                    (group_id, username, username_clean, user_password, user_email, user_email_hash, user_regdate, user_permissions, user_sig, user_dateformat, user_lang, user_timezone)
                     values
-                    ('" . (int)$user_id . "', " . $this->groupId . ", '" . $nick . "', '" . strtolower($nick) . "', '" . md5($password) . "', '" . $email_address . "', '" . crc32(strtolower($email_address)) . strlen($email_address) . "', '" . time() ."', '', '', '', '')";
+                    (" . $this->groupId . ", '" . $nick . "', '" . strtolower($nick) . "', '" . md5($password) . "', '" . $email_address . "', '" . crc32(strtolower($email_address)) . strlen($email_address) . "', '" . time() ."', '', '', '$user_dateformat', '$user_lang', '$user_timezone' )";
             $this->db_phpbb->Execute($sql);
-            $sql = " update " . $this->constants['config_table'] . " SET config_value = '{$user_id}' WHERE config_name = 'newest_user_id'";
+            $user_id = $this->db_phpbb->insert_ID ();
+            $this->debug_output ("phpbb_create_account, created user_id ($user_id), insert sql ($sql)");
+            $sql = "UPDATE " . $this->constants['config_table'] . " SET config_value = '{$user_id}' WHERE config_name = 'newest_user_id'";
             $this->db_phpbb->Execute($sql);
-            $sql = " update " . $this->constants['config_table'] . " SET config_value = '{$nick}' WHERE config_name = 'newest_username'";
+            $sql = "UPDATE " . $this->constants['config_table'] . " SET config_value = '{$nick}' WHERE config_name = 'newest_username'";
             $this->db_phpbb->Execute($sql);
-            $sql = " update " . $this->constants['config_table'] . " SET config_value = config_value + 1 WHERE config_name = 'num_users'";
+            $sql = "UPDATE " . $this->constants['config_table'] . " SET config_value = config_value + 1 WHERE config_name = 'num_users'";
             $this->db_phpbb->Execute($sql);
             $sql = "INSERT INTO " . $this->constants['user_group_table'] . " (user_id, group_id, user_pending)
                     VALUES ($user_id, $this->groupId, 0)";
@@ -355,6 +358,7 @@ if (!defined('PHPBB_DEBUG_IP')) define('PHPBB_DEBUG_IP', '1');
           }
         }
       }
+      $this->debug_output ("phpbb_create_account, returning: $status");
       return $status;
     }
 
@@ -426,6 +430,10 @@ if (!defined('PHPBB_DEBUG_IP')) define('PHPBB_DEBUG_IP', '1');
           }
           case 'variable': {
             $this->debug_info[] = $outputString;
+            break;
+          }
+          case 'log': {
+            error_log ('PHPBB_OBSERVER_DEBUG: ' . $outputString);
             break;
           }
           default: {
